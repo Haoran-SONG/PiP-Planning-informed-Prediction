@@ -6,7 +6,7 @@ The official implementation of "[PiP: Planning-informed Trajectory Prediction fo
 by [Haoran Song](https://haoran-song.github.io/), [Wenchao Ding](https://wenchaoding.github.io/), [Yuxuan Chen](),
 [Shaojie Shen](http://uav.ust.hk/), [Michael Yu Wang](https://seng.ust.hk/about/people/faculty/michael-yu-wang/) and [Qifeng Chen](https://cqf.io/).
 
-<p align="center"><img src="fig/architecture.png" width="900" /></p>
+<p align="center"><img src="fig/architecture.png" width="600" /></p>
 
 Inform the multi-agent future prediction with ego vehicle's planning in a novel planning-prediction-coupled pipeline.
 

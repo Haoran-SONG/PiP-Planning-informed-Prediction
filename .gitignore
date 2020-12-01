@@ -1,7 +1,7 @@
 # Dataset, scripts, trained models
 datasets/
 trained_models/
-scripts/
+#scripts/
 
 # Others
 *.m~
