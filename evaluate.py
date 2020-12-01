@@ -1,10 +1,12 @@
 import time
 import argparse
+import logging
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from model import pipNet
-from utils import highwayTrajDataset, maskedMSETest, maskedNLLTest
+from data import highwayTrajDataset
+from utils import initLogging, maskedMSETest, maskedNLLTest
 
 
 ## Network Arguments
@@ -51,19 +53,20 @@ def model_evaluate():
     ## Evaluation Mode
     PiP.eval()
     PiP.train_output_flag = False
+    initLogging(log_file='./trained_models/{}/evaluation.log'.format((args.name).split('-')[0]))
 
     ## Intialize dataset
-    print("Loading test data from {}...".format(args.test_set))
+    logging.info("Loading test data from {}...".format(args.test_set))
     tsSet = highwayTrajDataset(path=args.test_set,
                                targ_enc_size=args.social_context_size+args.dynamics_encoding_size,
                                grid_size=args.grid_size,
                                fit_plan_traj=True,
                                fit_plan_further_ds=args.plan_info_ds)
-    print("TOTAL :: {} test data.".format(len(tsSet)) )
+    logging.info("TOTAL :: {} test data.".format(len(tsSet)) )
     tsDataloader = DataLoader(tsSet, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=tsSet.collate_fn)
 
     ## Loss statistic
-    print("<{}> evaluated by {}-based NLL & RMSE, with planning input of {}s step.".format(args.name, args.metric, args.plan_info_ds*0.2))
+    logging.info("<{}> evaluated by {}-based NLL & RMSE, with planning input of {}s step.".format(args.name, args.metric, args.plan_info_ds*0.2))
     if args.metric == 'agent':
         nll_loss_stat = np.zeros((np.max(tsSet.Data[:, 0]).astype(int) + 1,
                                   np.max(tsSet.Data[:, 13:(13 + tsSet.grid_cells)]).astype(int) + 1, args.out_length))
@@ -142,8 +145,8 @@ def model_evaluate():
             avg_eva_time += batch_time
             if i%100 == 99:
                 eta = avg_eva_time / 100 * (len(tsSet) / args.batch_size - i)
-                print( "Evaluation progress(%):",format( i/(len(tsSet)/args.batch_size) * 100,'0.2f'),
-                       "| ETA(s):",int(eta))
+                logging.info( "Evaluation progress(%):{:.2f}".format( i/(len(tsSet)/args.batch_size) * 100,) +
+                              " | ETA(s):{}".format(int(eta)))
                 avg_eva_time = 0
 
     # Result Summary
@@ -171,8 +174,8 @@ def model_evaluate():
         nllOverall = (nll_loss / nll_counts).cpu()
 
     # Print the metrics every 5 time frame (1s)
-    print("RMSE (m)\t=> {}, Mean={:.3f}".format(rmseOverall[4::5], rmseOverall[4::5].mean()))
-    print("NLL (nats)\t=> {}, Mean={:.3f}".format(nllOverall[4::5], nllOverall[4::5].mean()))
+    logging.info("RMSE (m)\t=> {}, Mean={:.3f}".format(rmseOverall[4::5], rmseOverall[4::5].mean()))
+    logging.info("NLL (nats)\t=> {}, Mean={:.3f}".format(nllOverall[4::5], nllOverall[4::5].mean()))
 
 
 if __name__ == '__main__':

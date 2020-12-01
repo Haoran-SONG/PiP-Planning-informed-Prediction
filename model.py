@@ -92,7 +92,7 @@ class pipNet(nn.Module):
 
         ''' Decoder LSTM'''
         self.op_lat = nn.Linear(self.targ_enc_size + self.fuse_enc_size,
-                                self.num_lat_classes)  # output lateral      maneuver.
+                                self.num_lat_classes)  # output lateral maneuver.
         self.op_lon = nn.Linear(self.targ_enc_size + self.fuse_enc_size,
                                 self.num_lon_classes)  # output longitudinal maneuver.
         self.dec_lstm = nn.LSTM(input_size=self.targ_enc_size + self.fuse_enc_size + self.num_lat_classes + self.num_lon_classes,

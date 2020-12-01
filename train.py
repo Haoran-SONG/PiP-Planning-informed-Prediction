@@ -1,12 +1,14 @@
 import os
 import time
 import argparse
+import logging
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from model import pipNet
-from utils import highwayTrajDataset, maskedNLL, maskedMSE, maskedNLLTest
+from data import highwayTrajDataset
+from utils import initLogging, maskedNLL, maskedMSE, maskedNLLTest
 
 ## Network Arguments
 parser = argparse.ArgumentParser(description='Training: Planning-informed Trajectory Prediction for Autonomous Driving')
@@ -44,11 +46,20 @@ parser.add_argument('--train_epochs',    type=int, help='epochs of training usin
 
 def train_model():
     args = parser.parse_args()
-    print("------------- {} -------------".format(args.name))
-    print("Batch size : {}".format(args.batch_size))
-    print("Learning rate : {}".format(args.learning_rate))
-    print("Use Planning Coupled: {}".format(args.use_planning))
-    print("Use Target Fusion: {}".format(args.use_fusion))
+
+    ## Logging
+    log_path = "./trained_models/{}/".format(args.name)
+    os.makedirs(log_path, exist_ok=True)
+    initLogging(log_file=log_path+'train.log')
+    if args.tensorboard:
+        logger = SummaryWriter(log_path + 'train-pre{}-nll{}'.format(args.pretrain_epochs, args.train_epochs))
+        logger_val = SummaryWriter(log_path + 'validation-pre{}-nll{}'.format(args.pretrain_epochs, args.train_epochs))
+
+    logging.info("------------- {} -------------".format(args.name))
+    logging.info("Batch size : {}".format(args.batch_size))
+    logging.info("Learning rate : {}".format(args.learning_rate))
+    logging.info("Use Planning Coupled: {}".format(args.use_planning))
+    logging.info("Use Target Fusion: {}".format(args.use_fusion))
 
     ## Initialize network and optimizer
     PiP = pipNet(args)
@@ -57,41 +68,33 @@ def train_model():
     optimizer = torch.optim.Adam(PiP.parameters(), lr=args.learning_rate)
     crossEnt = torch.nn.BCELoss()
 
-    ## Initialize the log folder
-    log_path = "./trained_models/{}/".format(args.name)
-    if not os.path.exists(log_path):
-        os.makedirs(log_path)
-    if args.tensorboard:
-        logger = SummaryWriter(log_path + 'train-pre{}-nll{}'.format(args.pretrain_epochs, args.train_epochs))
-        logger_val = SummaryWriter(log_path + 'validation-pre{}-nll{}'.format(args.pretrain_epochs, args.train_epochs))
-
     ## Initialize training parameters
     pretrainEpochs = args.pretrain_epochs
     trainEpochs    = args.train_epochs
     batch_size     = args.batch_size
 
     ## Initialize data loaders
-    print("Train dataset: {}".format(args.train_set))
+    logging.info("Train dataset: {}".format(args.train_set))
     trSet = highwayTrajDataset(path=args.train_set,
                          targ_enc_size=args.social_context_size+args.dynamics_encoding_size,
                          grid_size=args.grid_size,
                          fit_plan_traj=False)
-    print("Validation dataset: {}".format(args.val_set))
+    logging.info("Validation dataset: {}".format(args.val_set))
     valSet = highwayTrajDataset(path=args.val_set,
                           targ_enc_size=args.social_context_size+args.dynamics_encoding_size,
                           grid_size=args.grid_size,
                           fit_plan_traj=True)
     trDataloader =  DataLoader(trSet, batch_size=batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=trSet.collate_fn)
     valDataloader = DataLoader(valSet, batch_size=batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=valSet.collate_fn)
-    print("DataSet Prepared : {} train data, {} validation data\n".format(len(trSet), len(valSet)))
-    print("Network structure: {}\n".format(PiP))
+    logging.info("DataSet Prepared : {} train data, {} validation data\n".format(len(trSet), len(valSet)))
+    logging.info("Network structure: {}\n".format(PiP))
 
     ## Training process
     for epoch_num in range( pretrainEpochs + trainEpochs ):
         if epoch_num == 0:
-            print('Pretrain with MSE loss')
+            logging.info('Pretrain with MSE loss')
         elif epoch_num == pretrainEpochs:
-            print('Train with NLL loss')
+            logging.info('Train with NLL loss')
         ## Variables to track training performance:
         avg_time_tr, avg_loss_tr, avg_loss_val = 0, 0, 0
         ## Training status, reclaim after each epoch
@@ -136,10 +139,10 @@ def train_model():
             if i%100 == 99:
                 eta = avg_time_tr/100*(len(trSet)/batch_size-i)
                 epoch_progress = i * batch_size / len(trSet)
-                print("Epoch no:",epoch_num+1,
-                    "| Epoch progress(%):",format(epoch_progress*100,'0.2f'),
-                    "| Avg train loss:",format(avg_loss_tr/100,'0.2f'),
-                    "| ETA(s):",int(eta))
+                logging.info(f"Epoch no:{epoch_num+1}"+
+                             f" | Epoch progress(%):{epoch_progress*100:.2f}"+
+                             f" | Avg train loss:{avg_loss_tr/100:.2f}"+
+                             f" | ETA(s):{int(eta)}")
 
                 if args.tensorboard:
                     logger.add_scalar("RMSE" if epoch_num < pretrainEpochs else "NLL", avg_loss_tr / 100, (epoch_progress + epoch_num) * 100)
@@ -193,7 +196,7 @@ def train_model():
 
     # All epochs finish________________________________________________________________________________________________
     torch.save(PiP.state_dict(), log_path+"{}.tar".format(args.name))
-    print("Model saved in trained_models/{}/{}.tar\n".format(args.name, args.name))
+    logging.info("Model saved in trained_models/{}/{}.tar\n".format(args.name, args.name))
 
 if __name__ == '__main__':
     train_model()

@@ -1,6 +1,7 @@
-# Dataset, results, trained models
-dataset/
+# Dataset, scripts, trained models
+datasets/
 trained_models/
+scripts/
 
 # Others
 *.m~
